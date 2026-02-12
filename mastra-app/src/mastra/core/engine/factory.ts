@@ -2,13 +2,14 @@
 import { Agent } from '@mastra/core';
 import { openai } from '@ai-sdk/openai';
 import { TenantConfig, AgentFactoryResult } from './types';
-import { dateTimeTool, transactionStatusTool, kycCheckTool, startRefundTool } from '../tools/index';
+import { dateTimeTool, transactionStatusTool, kycCheckTool, startRefundTool, searchDocsTool } from '../tools/index';
 
 export class AfricanCXFactory {
 
     static createTenant(config: TenantConfig): AgentFactoryResult {
         // 1. Rassembler les outils dynamiquement selon la config
-        const mainAgentTools: any = { dateTimeTool }; // Outil de base
+        // 1. Rassembler les outils dynamiquement selon la config
+        const mainAgentTools: any = { dateTimeTool, searchDocsTool }; // Outil de base + RAG
 
         if (config.modules.payment?.enabled) {
             mainAgentTools['transactionStatusTool'] = transactionStatusTool;
@@ -88,6 +89,7 @@ GESTION DES ACTIONS (OUTILS) :
 2. PAIEMENTS : Si un utilisateur se plaint d'une transaction (ID ou Référence), utilise 'check_transaction_status'.
    - Si le statut est 'FAILED' (Échec), propose IMMÉDIATEMENT de lancer le remboursement avec 'start_refund_process'.
 3. KYC : Si l'utilisateur veut augmenter ses plafonds, vérifie son statut avec 'check_kyc_status'.
+4. QUESTIONS GÉNÉRALES : Si l'utilisateur pose une question sur 'Comment faire X ?' ou 'C'est quoi Y ?', utilise TOUJOURS 'search_documentation' AVANT de répondre pour être précis.
 
 OBJECTIF : 
 Résoudre le problème au premier contact ou escalader proprement.

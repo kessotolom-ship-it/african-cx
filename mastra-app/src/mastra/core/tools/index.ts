@@ -1,6 +1,27 @@
 
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import pg from "pg";
+import OpenAI from "openai";
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Pool unique pour les outils (évite de réouvrir à chaque requête)
+let pool: pg.Pool | null = null;
+
+function getPool() {
+    if (!pool) {
+        if (!process.env.POSTGRES_URL) {
+            console.warn("POSTGRES_URL missing, RAG search will fail silently.");
+            return null;
+        }
+        pool = new pg.Pool({
+            connectionString: process.env.POSTGRES_URL,
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        });
+    }
+    return pool;
+}
 
 // --- Outil Universel : Date & Heure Locale (Politesse) ---
 export const dateTimeTool = createTool({
@@ -37,7 +58,6 @@ export const transactionStatusTool = createTool({
     }),
     execute: async ({ reference_id }) => {
         // MOCK : Simulation d'appel API
-        // Dans le futur, ceci appellera l'API Solimi réelle via fetch()
         const ref = reference_id;
 
         console.log(`Checking transaction ${ref}...`);
@@ -70,7 +90,6 @@ export const kycCheckTool = createTool({
     }),
     execute: async ({ phone_number }) => {
         // MOCK
-        // Simule un utilisateur non vérifié par défaut sauf si numéro spécial
         const isVerified = phone_number.endsWith("00");
         return {
             is_verified: isVerified,
@@ -92,19 +111,65 @@ export const startRefundTool = createTool({
         workflow_id: z.string().optional()
     }),
     execute: async ({ transaction_id, user_phone }) => {
-        // Dans une vraie implémentation, on appellerait mastra.workflows.refundWorkflow.execute()
-        // Mais ici, l'agent ne connaît pas l'instance Mastra.
-        // On va simuler ou appeler une fonction statique si possible.
-
         console.log(`[Tool] Triggering Refund Workflow for ${transaction_id}`);
-
-        // MOCK : On simule l'exécution du workflow ici pour simplifier l'exemple sans dépendance circulaire
-        // Idéalement, cet outil ferait un appel API interne vers /api/workflows/refund/execute
 
         if (transaction_id.startsWith("ERR")) {
             return { result: "Processus de remboursement lancé. Ticket #REF-1234 créé. Vous recevrez un SMS sous 24h.", workflow_id: "wk-1234" };
         }
 
         return { result: "Impossible de lancer le remboursement. La transaction semble valide ou en attente.", workflow_id: undefined };
+    }
+});
+
+// --- Outil RAG : Recherche dans la Documentation ---
+export const searchDocsTool = createTool({
+    id: "search_documentation",
+    description: "Search for official Solimi documentation (How-to, FAQ, Pricing, Limits) to answer user questions precisely. Use this tool whenever the user asks 'How to...', 'What is...', or 'Can I...'.",
+    inputSchema: z.object({
+        query: z.string().describe("The search query keywords")
+    }),
+    outputSchema: z.object({
+        answer_context: z.string()
+    }),
+    execute: async ({ query }) => {
+        const client = getPool();
+        if (!client) return { answer_context: "Désolé, ma base de connaissances est inaccessible pour le moment." };
+
+        try {
+            // 1. Vectoriser
+            const embeddingRes = await openai.embeddings.create({
+                model: 'text-embedding-3-small',
+                input: query.substring(0, 8000),
+            });
+            const vector = embeddingRes.data[0].embedding;
+
+            // 2. Chercher (Limité à 3 chunks pertinents)
+            const result = await client.query(
+                `SELECT content, url, (embedding <=> $1) as distance 
+                 FROM documents 
+                 ORDER BY distance ASC 
+                 LIMIT 3`,
+                [JSON.stringify(vector)]
+            );
+
+            if (result.rows.length === 0) {
+                return { answer_context: "Aucune information trouvée dans la documentation officielle sur ce sujet." };
+            }
+
+            // 3. Formater
+            const context = result.rows.map((row: any) =>
+                `[Source: ${row.url}]\n${row.content}`
+            ).join("\n\n---\n\n");
+
+            return { answer_context: context };
+
+        } catch (error: any) {
+            console.error("RAG Tool Error:", error);
+            // On ne plante pas l'agent, on dit juste qu'on ne sait pas
+            if (error.message && error.message.includes("does not exist")) {
+                return { answer_context: "La base de connaissances n'est pas encore initialisée." };
+            }
+            return { answer_context: "Erreur technique lors de la recherche documentaire." };
+        }
     }
 });
