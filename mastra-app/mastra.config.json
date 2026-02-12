@@ -1,0 +1,18 @@
+{
+    "rag":  {
+                "vector_store":  "pgvector",
+                "enabled":  true
+            },
+    "agents":  [
+                   "acx-architect",
+                   "acx-ux-lead",
+                   "acx-backend",
+                   "acx-sales"
+               ],
+    "name":  "african-cx-engine",
+    "version":  "0.1.0",
+    "workflows":  [
+                      "triage-and-routing",
+                      "kyc-extraction"
+                  ]
+}
