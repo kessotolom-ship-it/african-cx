@@ -2,5 +2,12 @@
     "framework": "nextjs",
     "buildCommand": "npm run build",
     "outputDirectory": ".next",
-    "ignoreCommand": "git diff --quiet HEAD^ HEAD ./"
+    "functions": {
+        "src/app/api/chat/route.ts": {
+            "maxDuration": 30
+        },
+        "src/app/api/crawl/route.ts": {
+            "maxDuration": 60
+        }
+    }
 }

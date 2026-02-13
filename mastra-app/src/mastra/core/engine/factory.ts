@@ -1,94 +1,77 @@
 
-import { Agent } from '@mastra/core';
+import { Agent } from '@mastra/core/agent';
 import { openai } from '@ai-sdk/openai';
 import { TenantConfig, AgentFactoryResult } from './types';
-import { dateTimeTool, transactionStatusTool, kycCheckTool, startRefundTool, searchDocsTool } from '../tools/index';
+import { dateTimeTool, transactionStatusTool, kycCheckTool, logDisputeTool, searchDocsTool } from '../tools/index';
+import type { MastraMemory } from '@mastra/core/memory';
 
 export class AfricanCXFactory {
 
-    static createTenant(config: TenantConfig): AgentFactoryResult {
-        // 1. Rassembler les outils dynamiquement selon la config
-        // 1. Rassembler les outils dynamiquement selon la config
-        const mainAgentTools: any = { searchDocsTool }; // RAG Obligatoire
-
-        if (config.modules.payment?.enabled) {
-            mainAgentTools['transactionStatusTool'] = transactionStatusTool;
-            mainAgentTools['startRefundTool'] = startRefundTool;
-        }
-
-        if (config.modules.compliance?.enabled) {
-            mainAgentTools['kycCheckTool'] = kycCheckTool;
-        }
-
-        // 2. Construire le Prompt Système dynamique (enrichi avec les nouveaux outils)
-        const systemPrompt = this.generateSystemPrompt(config);
-
-        // 3. Créer l'Agent Principal (Super Agent MVP)
-        const mainAgent = new Agent({
-            id: `${config.id}-main-agent`,
-            name: `${config.name} Support (N1)`,
-            instructions: systemPrompt,
-            model: openai('gpt-4o'),
-            tools: mainAgentTools, // Tous les outils sont ici !
-        });
-
-        // 4. (Optionnel) Créer des Agents Spécialistes si activés (au cas où on veut tester l'isolation)
+    static createTenant(config: TenantConfig, memory?: MastraMemory): AgentFactoryResult {
+        // 1. Définition des Agents Spécialistes (Hub & Spoke)
         const specialists: Record<string, Agent<any, any, any, any>> = {};
+
+        // --- Agent A: Documentation (Le Bibliothécaire) ---
+        // Seul lui a accès au RAG (searchDocsTool)
+        specialists['info'] = new Agent({
+            id: `${config.id}-info-agent`,
+            name: `${config.name} Info`,
+            instructions: `ROLE: Bibliothécaire ${config.name}. MISSION: Répondre aux questions FAQ avec 'search_documentation'. SI pas d'info, dis "Je ne sais pas".`,
+            model: openai('gpt-4o'),
+            tools: { searchDocsTool },
+            memory,
+        });
 
         if (config.modules.compliance?.enabled) {
             specialists['compliance'] = new Agent({
                 id: `${config.id}-compliance-agent`,
-                name: `${config.name} KYC & Fraude`,
+                name: `${config.name} Conformité`,
                 instructions: this.generateCompliancePrompt(config),
                 model: openai('gpt-4o'),
                 tools: { kycCheckTool },
+                memory,
             });
         }
 
         if (config.modules.payment?.enabled) {
             specialists['payment'] = new Agent({
                 id: `${config.id}-payment-agent`,
-                name: `${config.name} Mobile Money Guide`,
+                name: `${config.name} Transactions`,
                 instructions: this.generatePaymentPrompt(config),
                 model: openai('gpt-4o'),
-                tools: { transactionStatusTool, startRefundTool },
+                tools: { transactionStatusTool, logDisputeTool },
+                memory,
             });
         }
+
+        // 2. Agent Principal = ORCHESTRATEUR (Dispatcher)
+        // IL N'A AUCUN OUTIL. Son seul job est de comprendre et router.
+        const mainAgent = new Agent({
+            id: `${config.id}-main-agent`, // Dispatcher
+            name: `${config.name} Accueil`,
+            instructions: this.generateDispatcherPrompt(config),
+            model: openai('gpt-4o'),
+            tools: {}, // AUCUN OUTIL MÉTIER ICI
+            memory, // Le dispatcher a aussi la mémoire pour le contexte
+        });
 
         return { mainAgent, specialistAgents: specialists };
     }
 
-    private static generateSystemPrompt(config: TenantConfig): string {
-        const toneMap: Record<string, string> = {
-            'friendly': "Ton: Chaleureux, empathique.",
-            'formal': "Ton: Professionnel, direct.",
-            'direct': "Ton: Bref, efficace.",
-            'empathetic': "Ton: Rassurant, patient."
-        };
-
+    private static generateDispatcherPrompt(config: TenantConfig): string {
         return `
-ROLE: Assistant Virtuel N1 pour ${config.name} (${config.industry}).
-OBJECTIF: Résoudre le problème au 1er contact ou escalader.
+ROLE: Dispatcheur / Accueil pour ${config.name}.
+MISSION: Comprendre l'intention de l'utilisateur et l'orienter vers le bon spécialiste.
+CONTEXTE: Tu es le premier point de contact. Tu ne résous RIEN toi-même.
 
-${toneMap[config.tone] || toneMap['formal']}
-LANGUE: ${config.language}.
+AGENTS DISPONIBLES :
+1. [info]: Pour TOUTE question générale, FAQ, tarifs, "comment faire", horaires.
+2. [payment]: Pour TOUT problème d'argent, transaction échouée, retrait, dépôt, solde.
+3. [compliance]: Pour TOUT ce qui concerne l'identité, KYC, CNI, plafonds, blocage de compte administratif.
 
-MISSION:
-${config.mission}
-
-PROCÉDURE (A SUIVRE STRICTEMENT):
-1. ANLAYSE: Identifie l'intention (Paiement, Info, Conformité).
-2. ACTION:
-   - Question Générale (FAQ, Tarifs, Comment faire) -> Utilise TOUJOURS 'search_documentation'. NE JAMAIS INVENTER.
-   - Problème Transaction -> Utilise 'check_transaction_status'.
-     * Si ÉCHEC -> Propose 'start_refund_process'.
-   - Demande Augmentation Plafond -> Utilise 'check_kyc_status'.
-3. RÉPONSE:
-   - Si l'info est trouvée -> Réponds poliment.
-   - Si l'info manque ou doute -> Dis "Je ne sais pas, je demande à un humain".
-   - Si Fraude suspectée (mots clés ${config.modules.compliance?.fraudAlertKeywords?.join(', ')}) -> Escalade immédiate.
-
-Note: Ne donne JAMAIS ton avis personnel. Réfère-toi aux outils.
+RÈGLE D'OR:
+Analyse la demande et réponds UNIQUEMENT par le nom de l'agent entre crochets, ex: "[info]" ou "[payment]". 
+Si "Bonjour" simple -> Réponds "[info]".
 `;
     }
 
@@ -104,10 +87,10 @@ PROCÉDURE:
 2. Utilise 'check_transaction_status' avec l'ID.
 3. Analyse du Statut:
    - SUCCÈS: Rassure le client, donne le montant confirmé.
-   - ÉCHEC: Lance 'start_refund_process' immédiatement.
+   - ÉCHEC: Ouvre un dossier de contentieux avec 'log_dispute_ticket'. Explique qu'un humain va valider.
    - ATTENTE: Demande de patienter 30min max.
 
-Règle d'Or: Ne jamais promettre un remboursement si le statut n'est pas 'FAILED'.
+Règle d'Or: NE JAMAIS DIRE "REMBOURSEMENT EFFECTUÉ". Dire "DOSSIER OUVERT" ou "EN COURS D'ANALYSE".
 `;
     }
 

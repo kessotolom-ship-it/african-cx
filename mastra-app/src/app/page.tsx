@@ -13,6 +13,7 @@ export default function Chat() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [threadId, setThreadId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -34,35 +35,58 @@ export default function Chat() {
         setIsLoading(true);
 
         try {
-            // Construction de l'historique pour l'API
-            const apiMessages = [...messages, userMessage];
-
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: apiMessages }),
+                body: JSON.stringify({
+                    messages: [...messages, userMessage],
+                    threadId, // Envoie le threadId pour la persistance mémoire
+                }),
             });
 
             if (!response.ok) throw new Error('Erreur réseau');
+            if (!response.body) throw new Error('Pas de corps de réponse');
 
-            // Lecture de la réponse (Texte brut)
-            const text = await response.text();
+            // Récupérer le threadId du serveur (créé au premier message)
+            const serverThreadId = response.headers.get('X-Thread-Id');
+            if (serverThreadId && !threadId) {
+                setThreadId(serverThreadId);
+            }
 
-            const botMessage: Message = {
-                id: (Date.now() + 1).toString(),
+            // Préparer le message vide du bot
+            const botMessageId = (Date.now() + 1).toString();
+            setMessages(prev => [...prev, {
+                id: botMessageId,
                 role: 'assistant',
-                content: text,
-            };
+                content: '',
+            }]);
 
-            setMessages(prev => [...prev, botMessage]);
+            // Streaming Reader
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let accumulatedContent = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const text = decoder.decode(value, { stream: true });
+                accumulatedContent += text;
+
+                setMessages(prev => prev.map(msg =>
+                    msg.id === botMessageId
+                        ? { ...msg, content: accumulatedContent }
+                        : msg
+                ));
+            }
+
         } catch (error) {
             console.error(error);
-            const errorMessage: Message = {
-                id: (Date.now() + 1).toString(),
+            setMessages(prev => [...prev, {
+                id: (Date.now() + 2).toString(),
                 role: 'assistant',
-                content: "Désolé, j'ai eu un problème de connexion. Réessayez.",
-            };
-            setMessages(prev => [...prev, errorMessage]);
+                content: "Désolé, une erreur est survenue pendant la connexion.",
+            }]);
         } finally {
             setIsLoading(false);
         }
@@ -72,7 +96,17 @@ export default function Chat() {
         <>
             <header className="header">
                 <h1>Solimi Support</h1>
-                <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.5 }}>Service Client Premium (Mastra v1.3)</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.5 }}>Service Client Premium (Mastra v1.4 + Memory)</p>
+                    {threadId && (
+                        <button
+                            onClick={() => { setThreadId(null); setMessages([]); }}
+                            style={{ fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+                        >
+                            Nouvelle conversation
+                        </button>
+                    )}
+                </div>
             </header>
 
             <div className="chat-container">

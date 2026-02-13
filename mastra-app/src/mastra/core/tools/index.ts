@@ -99,25 +99,49 @@ export const kycCheckTool = createTool({
 });
 
 // --- Outil Workflow : Lancer un Remboursement ---
-export const startRefundTool = createTool({
-    id: "start_refund_process",
-    description: "Launch the official refund process if a transaction failed. Returns a Ticket ID if successful.",
+import { secureApiClient } from "../utils/secure-api";
+
+// --- Outil Workflow : Ouvrir un contentieux (Pas de remboursement direct) ---
+export const logDisputeTool = createTool({
+    id: "log_dispute_ticket",
+    description: "Open a dispute/complaint ticket for a failed transaction. NEVER say the refund is done. Say the request is logged for human review.",
     inputSchema: z.object({
         transaction_id: z.string().describe("The failed transaction ID"),
-        user_phone: z.string().describe("User phone number for notification")
+        user_phone: z.string().describe("User phone number"),
+        issue_details: z.string().describe("Details of the issue (e.g. 'Money debited but not received')")
     }),
     outputSchema: z.object({
-        result: z.string(),
-        workflow_id: z.string().optional()
+        ticket_id: z.string(),
+        status: z.string(),
+        message: z.string()
     }),
-    execute: async ({ transaction_id, user_phone }) => {
-        console.log(`[Tool] Triggering Refund Workflow for ${transaction_id}`);
+    execute: async ({ transaction_id, user_phone, issue_details }) => {
+        console.log(`[Tool] Logging dispute for ${transaction_id}`);
 
-        if (transaction_id.startsWith("ERR")) {
-            return { result: "Processus de remboursement lancé. Ticket #REF-1234 créé. Vous recevrez un SMS sous 24h.", workflow_id: "wk-1234" };
+        try {
+            // Appel API Sécurisé Standardisé
+            await secureApiClient('/api/tickets/create', 'POST', {
+                transaction_id,
+                user_phone,
+                issue_details,
+                source: 'MASTRA_AGENT'
+            });
+
+            // MOCK ID pour la démo
+            const ticketId = `TKT-${Math.floor(Math.random() * 100000)}`;
+
+            return {
+                ticket_id: ticketId,
+                status: 'OPEN',
+                message: `Dossier de réclamation #${ticketId} ouvert. Un agent humain va vérifier les preuves sous 24h.`
+            };
+        } catch (error) {
+            return {
+                ticket_id: 'ERR',
+                status: 'ERROR',
+                message: "Impossible de créer le ticket pour le moment. Veuillez contacter le support par téléphone."
+            };
         }
-
-        return { result: "Impossible de lancer le remboursement. La transaction semble valide ou en attente.", workflow_id: undefined };
     }
 });
 
