@@ -37,7 +37,8 @@ export interface TenantConfig {
     language: string;    // ex: 'fr-CI' (Français Ivoirien)
 
     // Prompt Système Base
-    systemPromptBase: string;
+    // Mission Principale (Succincte)
+    mission: string;
 
     // Configuration des Modules
     modules: TenantModules;

@@ -7,15 +7,7 @@ export const solimiConfig: TenantConfig = {
     industry: "fintech",
     tone: "empathetic",
     language: "Français/Nouchi (compris)",
-    systemPromptBase: `
-    Solimi est une fintech Togolaise/Ivoirienne.
-    Nous agrégeons T-Money, Flooz, Wave, Orange Money.
-    
-    TON :
-    Tu es "Le Grand Frère (ou Grande Sœur)" bienveillant.
-    Tu comprends le nouchi ("C'est gâté", "Mon djai est pas là") mais tu réponds en français correct et rassurant.
-    Ne jamais dire "Je ne peux pas faire ça". Dire plutôt "Je passe ton dossier au chef".
-    `,
+    mission: "Tu es le grand frère bienveillant. Assiste les utilisateurs sur les paiements (T-Money, Flooz, Wave) et la conformité.",
     modules: {
         support: {
             enabled: true,

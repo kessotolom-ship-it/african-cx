@@ -9,7 +9,7 @@ export class AfricanCXFactory {
     static createTenant(config: TenantConfig): AgentFactoryResult {
         // 1. Rassembler les outils dynamiquement selon la config
         // 1. Rassembler les outils dynamiquement selon la config
-        const mainAgentTools: any = { dateTimeTool, searchDocsTool }; // Outil de base + RAG
+        const mainAgentTools: any = { searchDocsTool }; // RAG Obligatoire
 
         if (config.modules.payment?.enabled) {
             mainAgentTools['transactionStatusTool'] = transactionStatusTool;
@@ -25,7 +25,7 @@ export class AfricanCXFactory {
 
         // 3. Créer l'Agent Principal (Super Agent MVP)
         const mainAgent = new Agent({
-            id: `${config.id}-main-agent`, // ID Unique
+            id: `${config.id}-main-agent`,
             name: `${config.name} Support (N1)`,
             instructions: systemPrompt,
             model: openai('gpt-4o'),
@@ -60,60 +60,67 @@ export class AfricanCXFactory {
 
     private static generateSystemPrompt(config: TenantConfig): string {
         const toneMap: Record<string, string> = {
-            'friendly': "Utilise un ton chaleureux, accessible. Tu peux utiliser des expressions locales modérées.",
-            'formal': "Reste professionnel, concis et vouvoie le client.",
-            'direct': "Sois factuel. Pas de blabla inutile.",
-            'empathetic': "Montre de l'écoute active. Rassure le client avant de donner la solution (surtout pour l'argent)."
+            'friendly': "Ton: Chaleureux, empathique.",
+            'formal': "Ton: Professionnel, direct.",
+            'direct': "Ton: Bref, efficace.",
+            'empathetic': "Ton: Rassurant, patient."
         };
 
-        const emergencyRules = config.modules.compliance?.fraudAlertKeywords
-            ? `\n🚨 URGENCE FRAUDE :\nSi l'utilisateur mentionne : [${config.modules.compliance.fraudAlertKeywords.join(', ')}], ne débats pas. Dis : "Je passe votre dossier en priorité au chef." et notifie l'humain.`
-            : "";
-
         return `
-CONTEXTE :
-Tu es l'assistant virtuel officiel de "${config.name}" (${config.industry}).
-Ton rôle est de répondre aux demandes WhatsApp des utilisateurs en Afrique de l'Ouest.
+ROLE: Assistant Virtuel N1 pour ${config.name} (${config.industry}).
+OBJECTIF: Résoudre le problème au 1er contact ou escalader.
 
-IDENTITÉ & TON :
 ${toneMap[config.tone] || toneMap['formal']}
-Langue : ${config.language}. (Comprends le Nouchi mais réponds en Français standard sauf instruction contraire).
+LANGUE: ${config.language}.
 
-RÈGLES MÉTIER :
-${config.systemPromptBase}
+MISSION:
+${config.mission}
 
-${emergencyRules}
+PROCÉDURE (A SUIVRE STRICTEMENT):
+1. ANLAYSE: Identifie l'intention (Paiement, Info, Conformité).
+2. ACTION:
+   - Question Générale (FAQ, Tarifs, Comment faire) -> Utilise TOUJOURS 'search_documentation'. NE JAMAIS INVENTER.
+   - Problème Transaction -> Utilise 'check_transaction_status'.
+     * Si ÉCHEC -> Propose 'start_refund_process'.
+   - Demande Augmentation Plafond -> Utilise 'check_kyc_status'.
+3. RÉPONSE:
+   - Si l'info est trouvée -> Réponds poliment.
+   - Si l'info manque ou doute -> Dis "Je ne sais pas, je demande à un humain".
+   - Si Fraude suspectée (mots clés ${config.modules.compliance?.fraudAlertKeywords?.join(', ')}) -> Escalade immédiate.
 
-GESTION DES ACTIONS (OUTILS) :
-1. DÉMARRAGE : Utilise toujours 'get_current_time' au début pour savoir si c'est "Bonjour" ou "Bonsoir".
-2. PAIEMENTS : Si un utilisateur se plaint d'une transaction (ID ou Référence), utilise 'check_transaction_status'.
-   - Si le statut est 'FAILED' (Échec), propose IMMÉDIATEMENT de lancer le remboursement avec 'start_refund_process'.
-3. KYC : Si l'utilisateur veut augmenter ses plafonds, vérifie son statut avec 'check_kyc_status'.
-4. QUESTIONS GÉNÉRALES : Si l'utilisateur pose une question sur 'Comment faire X ?' ou 'C'est quoi Y ?', utilise TOUJOURS 'search_documentation' AVANT de répondre pour être précis.
-
-OBJECTIF : 
-Résoudre le problème au premier contact ou escalader proprement.
+Note: Ne donne JAMAIS ton avis personnel. Réfère-toi aux outils.
 `;
     }
 
     // --- Générateurs de Prompts Spécifiques ---
 
     private static generatePaymentPrompt(config: TenantConfig): string {
-        if (!config.modules.payment?.providers) return "";
-        const providersList = config.modules.payment.providers.map(p => `- ${p.provider} (USSD: ${p.ussdCodeCheck || 'N/A'})`).join('\n');
         return `
-Tu es l'expert Mobile Money pour ${config.name}.
-Tes opérateurs supportés : ${providersList}
-Règles : Cash-In (Dépôt) vs Cash-Out (Retrait).
-Outils : 'check_transaction_status', 'start_refund_process'.
+ROLE: Expert Mobile Money ${config.name}.
+MISSION: Diagnostiquer les problèmes de transactions.
+
+PROCÉDURE:
+1. Demande la Référence Transaction (ID) si absente.
+2. Utilise 'check_transaction_status' avec l'ID.
+3. Analyse du Statut:
+   - SUCCÈS: Rassure le client, donne le montant confirmé.
+   - ÉCHEC: Lance 'start_refund_process' immédiatement.
+   - ATTENTE: Demande de patienter 30min max.
+
+Règle d'Or: Ne jamais promettre un remboursement si le statut n'est pas 'FAILED'.
 `;
     }
 
     private static generateCompliancePrompt(config: TenantConfig): string {
         return `
-Tu es l'agent de conformité (KYC).
-Ton but : Valider l'identité du client.
-Outils : 'check_kyc_status'.
+ROLE: Agent Conformité (KYC) ${config.name}.
+MISSION: Valider l'identité et prévenir la fraude.
+
+PROCÉDURE:
+1. Vérifie le statut actuel avec 'check_kyc_status'.
+2. Si NON VÉRIFIÉ: Liste les documents manquants (CNI, Selfie).
+3. Si VÉRIFIÉ: Confirme les plafonds débloqués.
+4. Si Fraude: Arrête tout et notifie un superviseur humain.
 `;
     }
 }
