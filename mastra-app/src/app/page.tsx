@@ -1,7 +1,14 @@
-
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import {
+    SendHorizontal,
+    RotateCcw,
+    Bot,
+    User,
+    Loader2,
+    Sparkles
+} from 'lucide-react';
 
 type Message = {
     id: string;
@@ -40,20 +47,18 @@ export default function Chat() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages: [...messages, userMessage],
-                    threadId, // Envoie le threadId pour la persistance mémoire
+                    threadId,
                 }),
             });
 
             if (!response.ok) throw new Error('Erreur réseau');
             if (!response.body) throw new Error('Pas de corps de réponse');
 
-            // Récupérer le threadId du serveur (créé au premier message)
             const serverThreadId = response.headers.get('X-Thread-Id');
             if (serverThreadId && !threadId) {
                 setThreadId(serverThreadId);
             }
 
-            // Préparer le message vide du bot
             const botMessageId = (Date.now() + 1).toString();
             setMessages(prev => [...prev, {
                 id: botMessageId,
@@ -61,7 +66,6 @@ export default function Chat() {
                 content: '',
             }]);
 
-            // Streaming Reader
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let accumulatedContent = '';
@@ -85,7 +89,7 @@ export default function Chat() {
             setMessages(prev => [...prev, {
                 id: (Date.now() + 2).toString(),
                 role: 'assistant',
-                content: "Désolé, une erreur est survenue pendant la connexion.",
+                content: "Désolé, une erreur est survenue. Veuillez réessayer.",
             }]);
         } finally {
             setIsLoading(false);
@@ -95,15 +99,27 @@ export default function Chat() {
     return (
         <>
             <header className="header">
-                <h1>Solimi Support</h1>
+                <h1>
+                    <Sparkles size={18} className="text-purple-400" fill="currentColor" />
+                    <span>Solimi Assistant</span>
+                </h1>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.5 }}>Service Client Premium (Mastra v1.4 + Memory)</p>
                     {threadId && (
                         <button
                             onClick={() => { setThreadId(null); setMessages([]); }}
-                            style={{ fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'inherit', cursor: 'pointer' }}
+                            title="Nouvelle conversation"
+                            style={{
+                                padding: '8px',
+                                borderRadius: '50%',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                background: 'rgba(255,255,255,0.05)',
+                                color: 'white',
+                                cursor: 'pointer',
+                                transition: 'background 0.2s'
+                            }}
                         >
-                            Nouvelle conversation
+                            <RotateCcw size={14} />
                         </button>
                     )}
                 </div>
@@ -111,36 +127,73 @@ export default function Chat() {
 
             <div className="chat-container">
                 {messages.length === 0 && (
-                    <div style={{ textAlign: 'center', marginTop: '20vh', opacity: 0.3 }}>
-                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '1rem' }}>
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                        </svg>
-                        <h2>Comment puis-je vous aider ?</h2>
-                        <p>Transactions, conformité, remboursements...</p>
+                    <div style={{
+                        textAlign: 'center',
+                        marginTop: '25vh',
+                        opacity: 0.8,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '1rem'
+                    }}>
+                        <div style={{
+                            width: 80,
+                            height: 80,
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 0 40px rgba(139, 92, 246, 0.4)'
+                        }}>
+                            <Bot size={40} color="white" />
+                        </div>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0 }}>Comment puis-je vous aider ?</h2>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                            {['Paiement échoué', 'Créer un compte', 'Frais de transaction', 'Remboursement'].map(tag => (
+                                <button
+                                    key={tag}
+                                    onClick={() => setInput(tag)}
+                                    style={{
+                                        padding: '0.5rem 1rem',
+                                        borderRadius: '99px',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '0.85rem',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                    onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                                >
+                                    {tag}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
 
                 {messages.map(m => (
                     <div key={m.id} className={`message ${m.role}`}>
-                        <div className="role-label">{m.role === 'user' ? 'Vous' : 'Solimi Agent'}</div>
+                        <div className="role-label">
+                            {m.role === 'user' ? <User size={12} /> : <Bot size={12} />}
+                            {m.role === 'user' ? 'Vous' : 'Solimi Agent'}
+                        </div>
                         {m.content}
                     </div>
                 ))}
 
                 {isLoading && (
-                    <div className="message assistant" style={{ opacity: 0.7 }}>
-                        <div className="role-label">Solimi Agent</div>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                            <span style={{ animation: 'bounce 1s infinite 0ms' }}>.</span>
-                            <span style={{ animation: 'bounce 1s infinite 200ms' }}>.</span>
-                            <span style={{ animation: 'bounce 1s infinite 400ms' }}>.</span>
+                    <div className="message assistant" style={{ opacity: 0.8 }}>
+                        <div className="role-label">
+                            <Bot size={12} /> Solimi Agent
                         </div>
-                        <style jsx>{`
-              @keyframes bounce {
-                0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-5px); }
-              }
-            `}</style>
+                        <div style={{ display: 'flex', gap: '4px', padding: '4px 0' }}>
+                            <div className="typing-dot" style={{ animationDelay: '0ms' }}></div>
+                            <div className="typing-dot" style={{ animationDelay: '200ms' }}></div>
+                            <div className="typing-dot" style={{ animationDelay: '400ms' }}></div>
+                        </div>
                     </div>
                 )}
                 <div ref={messagesEndRef} />
@@ -152,14 +205,20 @@ export default function Chat() {
                         className="input-field"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Décrivez votre problème..."
+                        placeholder="Posez votre question..."
                         autoFocus
                     />
-                    <button type="submit" className="send-btn" disabled={isLoading || !input.trim()}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="22" y1="2" x2="11" y2="13"></line>
-                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                        </svg>
+                    <button
+                        type="submit"
+                        className="send-btn"
+                        disabled={isLoading || !input.trim()}
+                        aria-label="Envoyer"
+                    >
+                        {isLoading ? (
+                            <Loader2 size={24} className="animate-spin" />
+                        ) : (
+                            <SendHorizontal size={24} style={{ marginLeft: '2px' }} /> // Optique correction
+                        )}
                     </button>
                 </form>
             </div>
