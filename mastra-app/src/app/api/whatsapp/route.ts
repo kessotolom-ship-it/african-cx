@@ -32,8 +32,14 @@ import {
     isAudioMessage,
     type EvolutionWebhookPayload,
 } from '../../../mastra/core/integrations/evolution-api';
+import {
+    transcribeAudio,
+    analyzeImage,
+    downloadMediaFromEvolution,
+    isFileTooLarge,
+} from '../../../mastra/core/integrations/media-processor';
 
-export const maxDuration = 30; // Vercel timeout
+export const maxDuration = 45; // Vercel timeout (augmenté pour transcription audio + vision)
 
 // ─── Vérification du secret webhook ──────────────────
 
@@ -92,18 +98,108 @@ export async function POST(req: Request) {
         }
 
         // ── 5. Extraire le contenu du message ───────────
-        const messageText = extractMessageText(payload);
+        let messageText = extractMessageText(payload);
         const senderPhone = extractPhoneNumber(remoteJid);
         const senderName = payload.data?.pushName || 'Client';
         const messageId = payload.data?.key?.id || '';
+        let mediaContext = ''; // Contexte additionnel issu des médias
 
-        // Gérer les messages audio (future intégration Whisper)
+        // ── 5a. 🎤 AUDIO → Transcription Whisper ────────
         if (isAudioMessage(payload)) {
-            await sendTextMessage({
-                number: senderPhone,
-                text: "🎤 Désolé, je ne peux pas encore traiter les messages vocaux. Pouvez-vous écrire votre message ? Merci !",
-            });
-            return NextResponse.json({ status: 'audio_not_supported' });
+            console.log(`[WEBHOOK] 🎤 Audio reçu de ${senderName} (${senderPhone})`);
+
+            try {
+                await sendPresence(remoteJid, 'composing');
+
+                // Télécharger l'audio via Evolution API
+                const media = await downloadMediaFromEvolution(messageId, payload.instance);
+
+                if (!media) {
+                    await sendTextMessage({
+                        number: senderPhone,
+                        text: "🎤 Désolé, je n'ai pas pu télécharger votre message vocal. Pouvez-vous réessayer ou écrire votre message ?",
+                    });
+                    return NextResponse.json({ status: 'audio_download_failed' });
+                }
+
+                // Vérifier la taille (max 25 MB pour Whisper)
+                if (isFileTooLarge(media.buffer, 'audio')) {
+                    await sendTextMessage({
+                        number: senderPhone,
+                        text: "🎤 Votre message vocal est trop long. Pouvez-vous le raccourcir ou écrire votre message ?",
+                    });
+                    return NextResponse.json({ status: 'audio_too_large' });
+                }
+
+                // Transcrire avec Whisper
+                const transcription = await transcribeAudio(media.buffer, media.mimeType);
+
+                if (!transcription.text || transcription.text.trim().length === 0) {
+                    await sendTextMessage({
+                        number: senderPhone,
+                        text: "🎤 Je n'ai pas compris votre message vocal. Pouvez-vous parler plus clairement ou écrire votre message ?",
+                    });
+                    return NextResponse.json({ status: 'transcription_empty' });
+                }
+
+                // Utiliser le texte transcrit comme message
+                messageText = transcription.text;
+                const langInfo = transcription.language ? ` [${transcription.language}]` : '';
+                const durInfo = transcription.duration ? ` (${transcription.duration.toFixed(0)}s)` : '';
+                console.log(`[WEBHOOK] 🎤→📝 Transcrit${langInfo}${durInfo}: "${messageText.substring(0, 80)}..."`);
+
+            } catch (error: any) {
+                console.error('[WEBHOOK] Whisper error:', error.message);
+                await sendTextMessage({
+                    number: senderPhone,
+                    text: "🎤 Désolé, je n'ai pas pu transcrire votre message vocal. Pouvez-vous écrire votre message ? Merci !",
+                });
+                return NextResponse.json({ status: 'transcription_error', error: error.message });
+            }
+        }
+
+        // ── 5b. 🖼️ IMAGE → Analyse Vision GPT-4o ────────
+        const isImage = payload.data?.messageType === 'imageMessage' ||
+            !!payload.data?.message?.imageMessage;
+
+        if (isImage) {
+            console.log(`[WEBHOOK] 🖼️ Image reçue de ${senderName} (${senderPhone})`);
+
+            try {
+                await sendPresence(remoteJid, 'composing');
+
+                const media = await downloadMediaFromEvolution(messageId, payload.instance);
+
+                if (media) {
+                    if (isFileTooLarge(media.buffer, 'image')) {
+                        mediaContext = '[Image reçue mais trop volumineuse pour être analysée]';
+                    } else {
+                        const vision = await analyzeImage(
+                            media.buffer,
+                            media.mimeType,
+                            messageText || undefined // La légende de l'image comme contexte
+                        );
+                        mediaContext = `[Image analysée — Type: ${vision.detectedType}] ${vision.description}`;
+                        console.log(`[WEBHOOK] 🖼️→📝 Vision: ${mediaContext.substring(0, 100)}...`);
+                    }
+                } else {
+                    mediaContext = '[Le client a envoyé une image mais elle n\'a pas pu être téléchargée]';
+                }
+
+                // Si pas de texte mais une image, créer un message à partir de l'analyse
+                if (!messageText || messageText.trim().length === 0) {
+                    messageText = mediaContext || 'Le client a envoyé une image.';
+                } else {
+                    // Ajouter le contexte visuel au message existant
+                    messageText = `${messageText}\n\n${mediaContext}`;
+                }
+            } catch (error: any) {
+                console.error('[WEBHOOK] Vision error:', error.message);
+                // On continue avec le texte/légende seul
+                if (!messageText) {
+                    messageText = 'Le client a envoyé une image que je n\'ai pas pu analyser.';
+                }
+            }
         }
 
         // Pas de texte exploitable
