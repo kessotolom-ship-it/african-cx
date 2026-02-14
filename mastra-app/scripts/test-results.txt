@@ -1,0 +1,153 @@
+﻿
+[36m[1mÔòöÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòù
+Ôòæ     ­ƒîì AFRICAN-CX ÔÇö SUITE DE TESTS COMPL├êTE      Ôòæ
+Ôòæ     Solimi Support Agent ÔÇö E2E Testing            Ôòæ
+ÔòÜÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòØ[0m
+
+[2mCible: http://127.0.0.1:3000/api/chat
+Date:  14/02/2026 12:36:38[0m
+
+[32mÔ£à Serveur accessible[0m
+
+[36m[1mÔòÉÔòÉÔòÉ ­ƒöÇ TRIAGE ÔòÉÔòÉÔòÉ[0m
+
+  [01/21] Salutation simple ÔåÆ info ... [32mPASS[0m [2m(3.1s)[0m
+       Ô£à Agent: info
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Bonjour ! Comment puis-je vous aider aujourd'hui ?..."[0m
+
+  [02/21] Question FAQ ÔåÆ info ... [32mPASS[0m [2m(10.3s)[0m
+       Ô£à Agent: info
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Je ne sais pas...."[0m
+
+  [03/21] Probl├¿me de paiement ÔåÆ payment ... [32mPASS[0m [2m(9.9s)[0m
+       Ô£à Agent: payment
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Pour vous aider, j'ai besoin de la R├®f├®rence de Transaction (ID) et du nom du fournisseur (T-Money, Flooz, etc.). Pourri..."[0m
+
+  [04/21] V├®rification identit├® ÔåÆ compliance ... [32mPASS[0m [2m(10.4s)[0m
+       Ô£à Agent: compliance
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Pour d├®bloquer votre compte, je vais d'abord v├®rifier le statut de votre v├®rification d'identit├®. Pouvez-vous me fournir..."[0m
+
+  [05/21] Transaction ├®chou├®e ÔåÆ payment ... [32mPASS[0m [2m(5.1s)[0m
+       Ô£à Agent: payment
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Pour v├®rifier le statut de votre transaction, pourriez-vous me pr├®ciser le nom du fournisseur (T-Money, Flooz, etc.) ?..."[0m
+
+  [06/21] KYC / CNI ÔåÆ compliance ... [32mPASS[0m [2m(7.7s)[0m
+       Ô£à Agent: compliance
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Pour valider votre KYC, vous devez suivre ces ├®tapes :  1. **V├®rification du statut actuel** : Je vais d'abord v├®rifier ..."[0m
+
+[36m[1mÔòÉÔòÉÔòÉ ­ƒôÜ AGENT INFO ÔòÉÔòÉÔòÉ[0m
+
+  [07/21] Question "comment faire" ... [31mFAIL[0m [2m(7.5s)[0m
+       Ô£à Agent: info
+       ÔØî R├®ponse invalide
+       [2m­ƒÆ¼ "Je ne sais pas...."[0m
+
+  [08/21] Question horaires / service ... [32mPASS[0m [2m(6.7s)[0m
+       Ô£à Agent: info
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Je ne sais pas...."[0m
+
+  [09/21] Question limites / plafonds ... [32mPASS[0m [2m(8.9s)[0m
+       Ô£à Agent: info
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Je ne sais pas...."[0m
+
+[36m[1mÔòÉÔòÉÔòÉ ­ƒÆ░ AGENT PAYMENT ÔòÉÔòÉÔòÉ[0m
+
+  [10/21] Transaction r├®ussie (mock) ... [32mPASS[0m [2m(9.5s)[0m
+       Ô£à Agent: payment
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Pour v├®rifier votre transaction, pourriez-vous me pr├®ciser le nom du fournisseur (T-Money, Flooz, etc.) ?..."[0m
+
+  [11/21] Transaction ├®chou├®e (mock ERR*) ... [32mPASS[0m [2m(5.4s)[0m
+       Ô£à Agent: payment
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Pour vous aider, je vais d'abord v├®rifier le statut de votre transaction. Pourriez-vous me confirmer le fournisseur de s..."[0m
+
+  [12/21] Transaction en attente (mock PEN*) ... [32mPASS[0m [2m(9.2s)[0m
+       Ô£à Agent: payment
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "La transaction avec l'ID PEN-55555 est toujours en attente de confirmation r├®seau. Je vous recommande de patienter encor..."[0m
+
+  [13/21] Demande de retrait ... [32mPASS[0m [2m(3.4s)[0m
+       Ô£à Agent: payment
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Pour vous aider avec votre retrait, pouvez-vous me fournir la r├®f├®rence de la transaction (ID) ? Cela me permettra de v├®..."[0m
+
+[36m[1mÔòÉÔòÉÔòÉ ­ƒøí´©Å AGENT COMPLIANCE ÔòÉÔòÉÔòÉ[0m
+
+  [14/21] V├®rifier KYC (non v├®rifi├® ÔÇö tel ne finit pas par 00) ... [32mPASS[0m [2m(6.2s)[0m
+       Ô£à Agent: compliance
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Le statut KYC pour le num├®ro 22890123456 est NON V├ëRIFI├ë. Les documents manquants sont :  - CNI Recto/Verso - Selfie  Ve..."[0m
+
+  [15/21] V├®rifier KYC (v├®rifi├® ÔÇö tel finit par 00) ... [32mPASS[0m [2m(5.9s)[0m
+       Ô£à Agent: compliance
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Le statut KYC pour le num├®ro 22890123400 est V├ëRIFI├ë. Les plafonds sont donc d├®bloqu├®s...."[0m
+
+  [16/21] Documents manquants ... [32mPASS[0m [2m(10.3s)[0m
+       Ô£à Agent: compliance
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Pour d├®bloquer votre compte, vous devez fournir les documents suivants :  1. **Carte Nationale d'Identit├® (CNI)** 2. **S..."[0m
+
+[36m[1mÔòÉÔòÉÔòÉ ÔÜá´©Å EDGE CASES ÔòÉÔòÉÔòÉ[0m
+
+  [17/21] Message tr├¿s court ... [32mPASS[0m [2m(7.8s)[0m
+       Ôä╣´©Å  Agent: info
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Je suis l├á pour vous aider avec des questions sur Solimi Pay. Que souhaitez-vous savoir ?..."[0m
+
+  [18/21] Message en anglais ... [32mPASS[0m [2m(8.3s)[0m
+       Ôä╣´©Å  Agent: compliance
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "I can help with that. Could you please provide your phone number so I can check the status of your account?..."[0m
+
+  [19/21] Message avec emojis ... [32mPASS[0m [2m(5.9s)[0m
+       Ô£à Agent: payment
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Je suis l├á pour vous aider. Pouvez-vous me fournir la r├®f├®rence de la transaction et le nom du fournisseur (T-Money, Flo..."[0m
+
+  [20/21] Message Nouchi / familier ... [32mPASS[0m [2m(3.1s)[0m
+       Ô£à Agent: payment
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Je peux t'aider avec ├ºa. Peux-tu me donner la R├®f├®rence de la Transaction (ID) pour que je v├®rifie le statut ?..."[0m
+
+  [21/21] Demande hors-sujet ... [32mPASS[0m [2m(5.8s)[0m
+       Ôä╣´©Å  Agent: info
+       Ô£à R├®ponse OK
+       [2m­ƒÆ¼ "Je ne sais pas...."[0m
+
+
+[35m[1mÔòÉÔòÉÔòÉ ­ƒºá M├ëMOIRE PERSISTANTE ÔòÉÔòÉÔòÉ[0m
+
+  [M1/3] Tour 1 ÔÇö Salutation + contexte ... [32mPASS[0m [2m(5.2s)[0m
+       Ô£à Agent: payment | Thread: f67412ef...
+       [2m­ƒÆ¼ "Bonjour Kofi, je suis l├á pour vous aider. Pouvez-vous me fournir la r├®f├®rence de la transaction Flooz concern├®e ?..."[0m
+
+  [M2/3] Tour 2 ÔÇö Suite de la conversation (doit se souvenir de Kofi) ... [32mPASS[0m [2m(4.7s)[0m
+       Ô£à Agent: payment | Thread: f67412ef...
+       [2m­ƒÆ¼ "Pourriez-vous me pr├®ciser le nom du fournisseur (T-Money, Flooz, etc.) pour cette transaction ?..."[0m
+
+  [M3/3] Tour 3 ÔÇö V├®rification m├®moire (doit se souvenir du contexte) ... [32mPASS[0m [2m(3.2s)[0m
+       Ô£à Agent: info | Thread: f67412ef...
+       [2m­ƒÆ¼ "Je ne sais pas...."[0m
+
+
+[36m[1mÔòöÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòù
+Ôòæ              ­ƒôè RAPPORT FINAL                     Ôòæ
+ÔòÜÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòØ[0m
+
+  Total:   24 tests
+  [32mPass├®s:  23[0m
+  [31m├ëchou├®s: 1[0m
+  Taux:    96%
+
+[33m[1m  ÔÜá´©Å  1 test(s) ├á v├®rifier[0m
+

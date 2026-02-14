@@ -8,6 +8,9 @@
         },
         "src/app/api/crawl/route.ts": {
             "maxDuration": 60
+        },
+        "src/app/api/whatsapp/route.ts": {
+            "maxDuration": 30
         }
     }
 }
