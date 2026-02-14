@@ -1,50 +1,47 @@
-const http = require('http');
+/**
+ * Test de persistance mémoire — Envoie 2 messages sur le même thread
+ * Usage: node scripts/test-memory-persistence.js
+ */
 
-// Test de persistance mémoire : envoie un 2ème message avec le même threadId
-// L'agent devrait se souvenir du contexte de la 1ère conversation
-const threadId = '6373cd27-be2e-4bd7-a6bc-061a51786926';
+const BASE_URL = process.env.TEST_URL || 'http://127.0.0.1:3000';
 
-const data = JSON.stringify({
-    messages: [
-        { role: 'user', content: "Je veux payer ma facture d'électricité" },
-        { role: 'assistant', content: "Pour vous aider avec votre paiement de facture..." },
-        { role: 'user', content: "C'est quel numéro pour vérifier mon solde?" }
-    ],
-    threadId: threadId // Réutilise le même thread
-});
+async function sendMessage(message, threadId = null) {
+    const payload = {
+        messages: [{ role: 'user', content: message }],
+    };
+    if (threadId) payload.threadId = threadId;
 
-const options = {
-    hostname: '127.0.0.1',
-    port: 3000,
-    path: '/api/chat',
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(data)
-    }
-};
-
-const req = http.request(options, (res) => {
-    console.log(`STATUS: ${res.statusCode}`);
-    console.log(`X-Thread-Id: ${res.headers['x-thread-id'] || 'N/A'}`);
-    console.log(`X-Agent-Intent: ${res.headers['x-agent-intent'] || 'N/A'}`);
-    res.setEncoding('utf8');
-    let body = '';
-
-    res.on('data', (chunk) => {
-        body += chunk;
+    const res = await fetch(`${BASE_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
     });
 
-    res.on('end', () => {
-        console.log('\n--- REPONSE COMPLETE ---');
-        console.log(body);
-        console.log('\n--- Thread réutilisé: ' + threadId + ' ---');
-    });
-});
+    const body = await res.text();
+    return {
+        status: res.status,
+        threadId: res.headers.get('x-thread-id'),
+        agent: res.headers.get('x-agent-intent'),
+        body,
+    };
+}
 
-req.on('error', (e) => {
-    console.error(`Erreur: ${e.message}`);
-});
+async function main() {
+    console.log('=== TEST MÉMOIRE PERSISTANTE ===\n');
 
-req.write(data);
-req.end();
+    // Tour 1
+    console.log('[Tour 1] "Je veux payer ma facture d\'électricité"');
+    const r1 = await sendMessage("Je veux payer ma facture d'électricité");
+    console.log(`  Status: ${r1.status} | Agent: ${r1.agent} | Thread: ${r1.threadId}`);
+    console.log(`  Réponse: ${r1.body.substring(0, 120)}...\n`);
+
+    // Tour 2 — même thread
+    console.log('[Tour 2] "C\'est quel numéro pour vérifier mon solde?" (même thread)');
+    const r2 = await sendMessage("C'est quel numéro pour vérifier mon solde?", r1.threadId);
+    console.log(`  Status: ${r2.status} | Agent: ${r2.agent} | Thread: ${r2.threadId}`);
+    console.log(`  Réponse: ${r2.body.substring(0, 120)}...\n`);
+
+    console.log(`=== Thread réutilisé: ${r1.threadId} ===`);
+}
+
+main().catch(console.error);

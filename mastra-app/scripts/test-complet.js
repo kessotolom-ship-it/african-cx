@@ -16,10 +16,8 @@
  * ============================================================
  */
 
-const http = require('http');
-
 // ─── CONFIG ─────────────────────────────────────────────
-const BASE_URL = 'http://127.0.0.1:3000';
+const BASE_URL = process.env.TEST_URL || 'http://127.0.0.1:3000';
 const API_PATH = '/api/chat';
 const TIMEOUT_MS = 60000; // 60s max par requête
 
@@ -241,58 +239,37 @@ const MEMORY_TEST = {
 //  MOTEUR DE TEST
 // ═══════════════════════════════════════════════════════
 
-function sendMessage(message, threadId = null) {
-    return new Promise((resolve, reject) => {
-        const payload = {
-            messages: [{ role: 'user', content: message }],
-        };
-        if (threadId) payload.threadId = threadId;
+async function sendMessage(message, threadId = null) {
+    const payload = {
+        messages: [{ role: 'user', content: message }],
+    };
+    if (threadId) payload.threadId = threadId;
 
-        const data = JSON.stringify(payload);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-        const url = new URL(BASE_URL);
-        const options = {
-            hostname: url.hostname,
-            port: url.port || 3000,
-            path: API_PATH,
+    try {
+        const res = await fetch(`${BASE_URL}${API_PATH}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(data),
-            },
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+        });
+
+        const body = await res.text();
+        clearTimeout(timer);
+
+        return {
+            status: res.status,
+            agent: res.headers.get('x-agent-intent') || 'unknown',
+            threadId: res.headers.get('x-thread-id') || null,
+            response: body.trim(),
         };
-
-        const timer = setTimeout(() => {
-            req.destroy();
-            reject(new Error('TIMEOUT'));
-        }, TIMEOUT_MS);
-
-        const req = http.request(options, (res) => {
-            const agentIntent = res.headers['x-agent-intent'] || 'unknown';
-            const returnedThreadId = res.headers['x-thread-id'] || null;
-            res.setEncoding('utf8');
-            let body = '';
-
-            res.on('data', (chunk) => { body += chunk; });
-            res.on('end', () => {
-                clearTimeout(timer);
-                resolve({
-                    status: res.statusCode,
-                    agent: agentIntent,
-                    threadId: returnedThreadId,
-                    response: body.trim(),
-                });
-            });
-        });
-
-        req.on('error', (e) => {
-            clearTimeout(timer);
-            reject(e);
-        });
-
-        req.write(data);
-        req.end();
-    });
+    } catch (err) {
+        clearTimeout(timer);
+        if (err.name === 'AbortError') throw new Error('TIMEOUT');
+        throw err;
+    }
 }
 
 async function runSingleTest(scenario, index, total) {
