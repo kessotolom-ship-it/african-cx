@@ -1,227 +1,104 @@
-'use client';
+import Link from 'next/link';
+import { Bot, MessageCircle, ExternalLink, Lock } from 'lucide-react';
 
-import { useState, useRef, useEffect } from 'react';
-import {
-    SendHorizontal,
-    RotateCcw,
-    Bot,
-    User,
-    Loader2,
-    Sparkles
-} from 'lucide-react';
-
-type Message = {
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-};
-
-export default function Chat() {
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [input, setInput] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [threadId, setThreadId] = useState<string | null>(null);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!input.trim() || isLoading) return;
-
-        const userMessage: Message = {
-            id: Date.now().toString(),
-            role: 'user',
-            content: input,
-        };
-
-        setMessages(prev => [...prev, userMessage]);
-        setInput('');
-        setIsLoading(true);
-
-        try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: [...messages, userMessage],
-                    threadId,
-                }),
-            });
-
-            if (!response.ok) throw new Error('Erreur réseau');
-            if (!response.body) throw new Error('Pas de corps de réponse');
-
-            const serverThreadId = response.headers.get('X-Thread-Id');
-            if (serverThreadId && !threadId) {
-                setThreadId(serverThreadId);
-            }
-
-            const botMessageId = (Date.now() + 1).toString();
-            setMessages(prev => [...prev, {
-                id: botMessageId,
-                role: 'assistant',
-                content: '',
-            }]);
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let accumulatedContent = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const text = decoder.decode(value, { stream: true });
-                accumulatedContent += text;
-
-                setMessages(prev => prev.map(msg =>
-                    msg.id === botMessageId
-                        ? { ...msg, content: accumulatedContent }
-                        : msg
-                ));
-            }
-
-        } catch (error) {
-            console.error(error);
-            setMessages(prev => [...prev, {
-                id: (Date.now() + 2).toString(),
-                role: 'assistant',
-                content: "Désolé, une erreur est survenue. Veuillez réessayer.",
-            }]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
+export default function LandingPage() {
     return (
-        <>
-            <header className="header">
-                <h1>
-                    <Sparkles size={18} className="text-purple-400" fill="currentColor" />
-                    <span>Solimi Assistant</span>
+        <div className="flex flex-col min-h-screen bg-slate-900 text-white font-sans items-center justify-center p-4">
+
+            {/* ── HERO ──────────────────────────────── */}
+            <div className="text-center max-w-2xl animate-fade-in-up">
+
+                <div className="flex items-center justify-center mb-8">
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl animate-pulse-slow">
+                        <Bot size={40} className="text-white" />
+                    </div>
+                </div>
+
+                <h1 className="text-4xl md:text-5xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+                    Solimi Support AI
                 </h1>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    {threadId && (
-                        <button
-                            onClick={() => { setThreadId(null); setMessages([]); }}
-                            title="Nouvelle conversation"
-                            style={{
-                                padding: '8px',
-                                borderRadius: '50%',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                background: 'rgba(255,255,255,0.05)',
-                                color: 'white',
-                                cursor: 'pointer',
-                                transition: 'background 0.2s'
-                            }}
-                        >
-                            <RotateCcw size={14} />
-                        </button>
-                    )}
-                </div>
-            </header>
+                <p className="text-lg text-slate-400 mb-10 leading-relaxed">
+                    L'assistance client nouvelle génération, disponible 24/7 sur WhatsApp.
+                    <br />
+                    Capable de voir, d'écouter et de résoudre vos problèmes.
+                </p>
 
-            <div className="chat-container">
-                {messages.length === 0 && (
-                    <div style={{
-                        textAlign: 'center',
-                        marginTop: '25vh',
-                        opacity: 0.8,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '1rem'
-                    }}>
-                        <div style={{
-                            width: 80,
-                            height: 80,
-                            borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            boxShadow: '0 0 40px rgba(139, 92, 246, 0.4)'
-                        }}>
-                            <Bot size={40} color="white" />
-                        </div>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0 }}>Comment puis-je vous aider ?</h2>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                            {['Paiement échoué', 'Créer un compte', 'Frais de transaction', 'Remboursement'].map(tag => (
-                                <button
-                                    key={tag}
-                                    onClick={() => setInput(tag)}
-                                    style={{
-                                        padding: '0.5rem 1rem',
-                                        borderRadius: '99px',
-                                        background: 'rgba(255,255,255,0.05)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        color: 'var(--text-secondary)',
-                                        fontSize: '0.85rem',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s'
-                                    }}
-                                    onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                                    onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                                >
-                                    {tag}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                {/* ── CTA ───────────────────────────────── */}
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
 
-                {messages.map(m => (
-                    <div key={m.id} className={`message ${m.role}`}>
-                        <div className="role-label">
-                            {m.role === 'user' ? <User size={12} /> : <Bot size={12} />}
-                            {m.role === 'user' ? 'Vous' : 'Solimi Agent'}
-                        </div>
-                        {m.content}
-                    </div>
-                ))}
-
-                {isLoading && (
-                    <div className="message assistant" style={{ opacity: 0.8 }}>
-                        <div className="role-label">
-                            <Bot size={12} /> Solimi Agent
-                        </div>
-                        <div style={{ display: 'flex', gap: '4px', padding: '4px 0' }}>
-                            <div className="typing-dot" style={{ animationDelay: '0ms' }}></div>
-                            <div className="typing-dot" style={{ animationDelay: '200ms' }}></div>
-                            <div className="typing-dot" style={{ animationDelay: '400ms' }}></div>
-                        </div>
-                    </div>
-                )}
-                <div ref={messagesEndRef} />
-            </div>
-
-            <div className="input-area">
-                <form onSubmit={handleSubmit} className="input-form">
-                    <input
-                        className="input-field"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="Posez votre question..."
-                        autoFocus
-                    />
-                    <button
-                        type="submit"
-                        className="send-btn"
-                        disabled={isLoading || !input.trim()}
-                        aria-label="Envoyer"
+                    <a
+                        href="https://wa.me/22890112233" // Remplacez par votre lien court WhatsApp
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-whatsapp group"
                     >
-                        {isLoading ? (
-                            <Loader2 size={24} className="animate-spin" />
-                        ) : (
-                            <SendHorizontal size={24} style={{ marginLeft: '2px' }} /> // Optique correction
-                        )}
-                    </button>
-                </form>
+                        <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                        <span>Discuter sur WhatsApp</span>
+                        <ExternalLink className="w-4 h-4 opacity-50" />
+                    </a>
+
+                    <Link href="/admin/simulator" className="btn-admin">
+                        <Lock className="w-4 h-4" />
+                        <span>Accès Opérateur</span>
+                    </Link>
+
+                </div>
+
             </div>
-        </>
+
+            {/* ── FOOTER ────────────────────────────── */}
+            <footer className="mt-20 text-center text-sm text-slate-600">
+                <p>© 2024 Solimi Fintech. Powered by Mastra Engine v1.4.</p>
+                <div className="flex justify-center gap-4 mt-2">
+                    <span>• Vision (GPT-4o)</span>
+                    <span>• Voice (Whisper)</span>
+                    <span>• CRM Integration</span>
+                </div>
+            </footer>
+
+            {/* ── STYLES (Inline Tailwind-like for speed) ── */}
+            <style jsx global>{`
+        body { background: #0f172a; margin: 0; }
+        .btn-whatsapp {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: #25D366;
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border-radius: 99px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+        }
+        .btn-whatsapp:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4); }
+        
+        .btn-admin {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255,255,255,0.05);
+            color: #94a3b8;
+            padding: 0.8rem 1.5rem;
+            border-radius: 99px;
+            font-weight: 500;
+            text-decoration: none;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.2s;
+        }
+        .btn-admin:hover {
+            color: white;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .animate-pulse-slow { animation: pulse 3s infinite; }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+            50% { box-shadow: 0 0 0 20px rgba(99, 102, 241, 0); }
+        }
+      `}</style>
+        </div>
     );
 }

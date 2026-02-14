@@ -1,9 +1,9 @@
-
 import { Agent } from '@mastra/core/agent';
 import { openai } from '@ai-sdk/openai';
 import { TenantConfig, AgentFactoryResult } from './types';
 import { dateTimeTool, transactionStatusTool, kycCheckTool, logDisputeTool, searchDocsTool } from '../tools/index';
 import type { MastraMemory } from '@mastra/core/memory';
+import { crmTool } from '../../tools/crmTool';
 
 export class AfricanCXFactory {
 
@@ -16,9 +16,13 @@ export class AfricanCXFactory {
         specialists['info'] = new Agent({
             id: `${config.id}-info-agent`,
             name: `${config.name} Info`,
-            instructions: `ROLE: Bibliothécaire ${config.name}. MISSION: Répondre aux questions FAQ avec 'search_documentation'. SI pas d'info, dis "Je ne sais pas".`,
+            instructions: `
+Role: Bibliothécaire ${config.name}.
+Mission: Répondre aux questions FAQ avec 'search_documentation'.
+ESCALADE (CRM): Si tu ne trouves PAS l'info ou si l'utilisateur insiste/est insatisfait, utilise 'create-crm-ticket' pour ouvrir un ticket support.
+Règle: Ne jamais inventer. Si pas sûr -> Ticket.`,
             model: openai('gpt-4o'),
-            tools: { searchDocsTool },
+            tools: { searchDocsTool, crmTool },
             memory,
         });
 
@@ -28,7 +32,7 @@ export class AfricanCXFactory {
                 name: `${config.name} Conformité`,
                 instructions: this.generateCompliancePrompt(config),
                 model: openai('gpt-4o'),
-                tools: { kycCheckTool },
+                tools: { kycCheckTool, crmTool },
                 memory,
             });
         }
@@ -39,7 +43,7 @@ export class AfricanCXFactory {
                 name: `${config.name} Transactions`,
                 instructions: this.generatePaymentPrompt(config),
                 model: openai('gpt-4o'),
-                tools: { transactionStatusTool, logDisputeTool },
+                tools: { transactionStatusTool, logDisputeTool, crmTool },
                 memory,
             });
         }
@@ -66,7 +70,7 @@ CONTEXTE: Tu es le premier point de contact. Tu ne résous RIEN toi-même.
 
 AGENTS DISPONIBLES :
 1. [info]: Pour TOUTE question générale, FAQ, tarifs, "comment faire", horaires.
-2. [payment]: Pour TOUT problème d'argent, transaction échouée, retrait, dépôt, solde.
+2. [payment]: Pour TOUT problème d'argent, transaction échouée, retrait, dépôt, solde, réclamations.
 3. [compliance]: Pour TOUT ce qui concerne l'identité, KYC, CNI, plafonds, blocage de compte administratif.
 
 RÈGLE D'OR:
@@ -80,17 +84,22 @@ Si "Bonjour" simple -> Réponds "[info]".
     private static generatePaymentPrompt(config: TenantConfig): string {
         return `
 ROLE: Expert Mobile Money ${config.name}.
-MISSION: Diagnostiquer les problèmes de transactions.
+MISSION: Diagnostiquer les problèmes de transactions et gérer les réclamations.
 
-PROCÉDURE:
+PROCÉDURE STANDARD:
 1. Demande la Référence Transaction (ID) si absente.
 2. Utilise 'check_transaction_status' avec l'ID.
 3. Analyse du Statut:
    - SUCCÈS: Rassure le client, donne le montant confirmé.
-   - ÉCHEC: Ouvre un dossier de contentieux avec 'log_dispute_ticket'. Explique qu'un humain va valider.
+   - ÉCHEC: Ouvre un dossier de contentieux avec 'log_dispute_ticket'.
    - ATTENTE: Demande de patienter 30min max.
 
-Règle d'Or: NE JAMAIS DIRE "REMBOURSEMENT EFFECTUÉ". Dire "DOSSIER OUVERT" ou "EN COURS D'ANALYSE".
+PROCÉDURE D'ESCALADE (CRM):
+- SI le client est en COLÈRE ("Angry") ou menace de quitter le service.
+- SI le problème est complexe (fraude suspectée, argent disparu depuis >24h).
+- SI le client demande explicitement "PARLER À UN HUMAIN".
+ALORS: Utilise l'outil 'create-crm-ticket' immédiatement.
+Ne perds pas de temps. Crée le ticket et dis au client: "J'ai transmis votre dossier (Ticket #...) à notre équipe spécialisée."
 `;
     }
 
@@ -103,7 +112,11 @@ PROCÉDURE:
 1. Vérifie le statut actuel avec 'check_kyc_status'.
 2. Si NON VÉRIFIÉ: Liste les documents manquants (CNI, Selfie).
 3. Si VÉRIFIÉ: Confirme les plafonds débloqués.
-4. Si Fraude: Arrête tout et notifie un superviseur humain.
+
+ESCALADE (CRM):
+- SI Fraude Confirmée ou Suspectée -> 'create-crm-ticket' (Catégorie: Fraud, Priorité: High).
+- SI le client conteste un blocage -> 'create-crm-ticket' (Catégorie: Compliance).
+- SI demande d'humain -> Escalade immédiate.
 `;
     }
 }

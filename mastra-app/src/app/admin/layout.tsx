@@ -9,7 +9,8 @@ import {
     MessageSquareText,
     Settings,
     LogOut,
-    Cpu
+    Cpu,
+    Bot
 } from 'lucide-react';
 import './admin.css';
 
@@ -24,6 +25,7 @@ export default function AdminLayout({
         { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
         { name: 'Knowledge Base', href: '/admin/knowledge', icon: Database },
         { name: 'Conversations', href: '/admin/conversations', icon: MessageSquareText },
+        { name: 'IA Simulator', href: '/admin/simulator', icon: Bot },
         { name: 'Settings', href: '/admin/settings', icon: Settings },
     ];
 
