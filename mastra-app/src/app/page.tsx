@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { Bot, MessageCircle, ExternalLink, Lock } from 'lucide-react';
 
