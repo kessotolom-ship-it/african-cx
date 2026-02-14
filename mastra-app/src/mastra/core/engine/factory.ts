@@ -1,9 +1,8 @@
 import { Agent } from '@mastra/core/agent';
 import { openai } from '@ai-sdk/openai';
 import { TenantConfig, AgentFactoryResult } from './types';
-import { dateTimeTool, transactionStatusTool, kycCheckTool, logDisputeTool, searchDocsTool } from '../tools/index';
+import { dateTimeTool, transactionStatusTool, kycCheckTool, logDisputeTool, searchDocsTool, crmTool } from '../tools/index';
 import type { MastraMemory } from '@mastra/core/memory';
-import { crmTool } from '../../tools/crmTool';
 
 export class AfricanCXFactory {
 

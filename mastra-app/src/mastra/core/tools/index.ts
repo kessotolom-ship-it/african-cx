@@ -3,6 +3,7 @@ import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import pg from "pg";
 import OpenAI from "openai";
+import { secureApiClient } from "../utils/secure-api";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -28,10 +29,6 @@ export const dateTimeTool = createTool({
     id: "get_current_time",
     description: "Get the current date and time to greet the user correctly (Bonjour vs Bonsoir). always use this for the first message.",
     inputSchema: z.object({}),
-    outputSchema: z.object({
-        current_time: z.string(),
-        greeting_suggestion: z.string()
-    }),
     execute: async () => {
         const now = new Date();
         const hour = now.getHours();
@@ -63,10 +60,10 @@ export const transactionStatusTool = createTool({
         console.log(`Checking transaction ${ref}...`);
 
         if (ref.startsWith("ERR")) {
-            return { status: 'FAILED', message: "Transaction échouée chez l'opérateur. Remboursement auto en cours." };
+            return { status: 'FAILED', message: "Transaction échouée chez l'opérateur. Remboursement auto en cours.", amount: undefined };
         }
         if (ref.startsWith("PEN")) {
-            return { status: 'PENDING', message: "Transaction en attente de confirmation réseau." };
+            return { status: 'PENDING', message: "Transaction en attente de confirmation réseau.", amount: undefined };
         }
 
         return {
@@ -97,9 +94,6 @@ export const kycCheckTool = createTool({
         };
     }
 });
-
-// --- Outil Workflow : Lancer un Remboursement ---
-import { secureApiClient } from "../utils/secure-api";
 
 // --- Outil Workflow : Ouvrir un contentieux (Pas de remboursement direct) ---
 export const logDisputeTool = createTool({
@@ -196,4 +190,43 @@ export const searchDocsTool = createTool({
             return { answer_context: "Erreur technique lors de la recherche documentaire." };
         }
     }
+});
+
+/**
+ * Outil CRM Simulé (Niveau 2 - Escalade)
+ * En production, remplacer les console.log par des appels axios vers Zendesk/Salesforce/HubSpot.
+ */
+export const crmTool = createTool({
+    id: 'create-crm-ticket',
+    description: 'Crée un ticket de support dans le CRM (Zendesk) pour escalader une conversation vers un agent humain.',
+    inputSchema: z.object({
+        subject: z.string().describe('Le sujet court du ticket (ex: "Erreur paiement Mobile Money")'),
+        description: z.string().describe('Le résumé complet du problème et l\'historique pertinent de la conversation.'),
+        priority: z.enum(['low', 'normal', 'high', 'urgent']).describe('La priorité jugée par l\'IA.'),
+        category: z.enum(['billing', 'technical', 'fraud', 'general']).describe('La catégorie du ticket.'),
+        customerSentiment: z.string().describe('Sentiment détecté (ex: "Angry", "Confused", "Neutral").'),
+    }),
+    execute: async ({ subject, priority, customerSentiment, description }) => {
+        console.log('--- 🎫 CRM TICKET CRÉATION ---');
+        console.log('Sujet:', subject);
+        console.log('Priorité:', priority);
+        console.log('Sentiment:', customerSentiment);
+        console.log('Description:', description.substring(0, 50) + '...');
+
+        // Simulation d'appel API (Latence réseau)
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Générer un faux ID de ticket
+        const ticketId = `TICKET-${Math.floor(Math.random() * 10000)}`;
+
+        console.log(`✅ Ticket créé avec succès: ${ticketId}`);
+        console.log('------------------------------');
+
+        return {
+            success: true,
+            ticketId: ticketId,
+            message: `Le ticket de support ${ticketId} a été créé pour l'équipe humaine.`,
+            estimatedWaitTime: '2 heures'
+        };
+    },
 });
